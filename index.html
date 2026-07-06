@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Todo</title>
+<style>
+  :root {
+    --bg: #faf9f6;
+    --ink: #1f1f1f;
+    --line: #1f1f1f;
+    --accent: #2e6f4e;
+    --muted: #8a8a85;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Courier New', monospace;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 60px 20px;
+  }
+  .wrap {
+    width: 100%;
+    max-width: 520px;
+  }
+  h1 {
+    font-size: 28px;
+    letter-spacing: -0.5px;
+    margin: 0 0 4px;
+    border-bottom: 3px solid var(--line);
+    padding-bottom: 16px;
+  }
+  .sub {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 8px 0 32px;
+  }
+  .add-row {
+    display: flex;
+    gap: 0;
+    margin-bottom: 32px;
+    border: 2px solid var(--line);
+  }
+  .add-row input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 14px;
+    font-family: inherit;
+    font-size: 15px;
+    color: var(--ink);
+    outline: none;
+  }
+  .add-row button {
+    border: none;
+    border-left: 2px solid var(--line);
+    background: var(--accent);
+    color: white;
+    padding: 14px 22px;
+    font-family: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .add-row button:hover { opacity: 0.85; }
+  .list { list-style: none; padding: 0; margin: 0; }
+  .item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 0;
+    border-bottom: 1px solid #ddd9d0;
+  }
+  .item .label {
+    font-size: 15px;
+    flex: 1;
+  }
+  .index {
+    color: var(--muted);
+    font-size: 12px;
+    margin-right: 14px;
+    min-width: 18px;
+  }
+  .actions { display: flex; gap: 8px; }
+  .actions button {
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 12px;
+    padding: 6px 10px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .actions button:hover {
+    background: var(--ink);
+    color: var(--bg);
+  }
+  .actions .del:hover {
+    background: #b3402c;
+    border-color: #b3402c;
+    color: white;
+  }
+  .empty {
+    color: var(--muted);
+    font-size: 14px;
+    padding: 24px 0;
+    text-align: center;
+    border: 1px dashed #ccc;
+  }
+  .status {
+    margin-top: 24px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .status.error { color: #b3402c; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>todo://localhost</h1>
+  <div class="sub" id="apiStatus">проверка соединения с API...</div>
+
+  <div class="add-row">
+    <input id="newTask" type="text" placeholder="новая задача" />
+    <button onclick="addTask()">добавить</button>
+  </div>
+
+  <ul class="list" id="list"></ul>
+  <div class="status" id="status"></div>
+</div>
+
+<script>
+const API = "http://localhost:8000";
+
+async function fetchTasks() {
+  try {
+    const res = await fetch(`${API}/tasks`);
+    const tasks = await res.json();
+    document.getElementById('apiStatus').textContent = `подключено к ${API}`;
+    render(tasks);
+  } catch (e) {
+    document.getElementById('apiStatus').textContent = `нет связи с ${API} — запусти uvicorn`;
+    document.getElementById('apiStatus').classList.add('error');
+  }
+}
+
+function render(tasks) {
+  const list = document.getElementById('list');
+  list.innerHTML = '';
+  if (!tasks.length) {
+    list.innerHTML = '<div class="empty">пока пусто — добавь первую задачу</div>';
+    return;
+  }
+  tasks.forEach((task, i) => {
+    const li = document.createElement('li');
+    li.className = 'item';
+    li.innerHTML = `
+      <span class="index">${i}</span>
+      <span class="label">${escapeHtml(task)}</span>
+      <span class="actions">
+        <button onclick="editTask(${i})">изменить</button>
+        <button class="del" onclick="deleteTask(${i})">удалить</button>
+      </span>
+    `;
+    list.appendChild(li);
+  });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+async function addTask() {
+  const input = document.getElementById('newTask');
+  const text = input.value.trim();
+  if (!text) return;
+  await fetch(`${API}/tasks?text_task=${encodeURIComponent(text)}`, { method: 'POST' });
+  input.value = '';
+  fetchTasks();
+}
+
+async function deleteTask(id) {
+  await fetch(`${API}/tasks?id=${id}`, { method: 'DELETE' });
+  fetchTasks();
+}
+
+async function editTask(id) {
+  const newVal = prompt('новое значение:');
+  if (newVal === null || !newVal.trim()) return;
+  await fetch(`${API}/tasks?id=${id}&new_value=${encodeURIComponent(newVal)}`, { method: 'PUT' });
+  fetchTasks();
+}
+
+document.getElementById('newTask').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') addTask();
+});
+
+fetchTasks();
+</script>
+</body>
+</html>
