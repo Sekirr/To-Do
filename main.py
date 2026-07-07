@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from database import SessionLocal, Task, Base, engine
+from schemas import TaskCreate
 
 app = FastAPI()
 
@@ -38,12 +39,11 @@ def get_tasks(database=Depends(get_database)):
 
 
 @app.post("/tasks")
-def post_tasks(text_task: str, database=Depends(get_database)):
-    if text_task.strip():
-        task = Task(text=text_task)
-    else:
-        return {"message": "Task is empty"}
+def post_tasks(task_create: TaskCreate, database=Depends(get_database)):
+    if not task_create.text.strip():
+        raise HTTPException(status_code=404, detail="Data text uncorrected.")
 
+    task = Task(text=task_create.text)
     database.add(task)
     database.commit()
     database.refresh(task)
