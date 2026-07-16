@@ -1,7 +1,8 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from database import SessionLocal, Task, Base, engine
-from schemas import TaskCreate
+from database import SessionLocal, Task
+from schemas import TaskCreate, TaskResponse
+from sqlalchemy.orm import Session
 
 app = FastAPI()
 
@@ -21,46 +22,44 @@ def get_database():
         db.close()
 
 
-def check_connection(task):
+def validate_task(task: Task):
     if task is None:
         raise HTTPException(status_code=404, detail="Value not found")
 
 
-def get_task_by_id(id: int, database):
+def get_task_by_id(id: int, database: Session):
     task = database.query(Task).filter(Task.id == id).first()
-    check_connection(task)
+    validate_task(task)
 
     return task
 
 
-@app.get("/tasks")
-def get_tasks(database=Depends(get_database)):
+@app.get("/tasks", response_model=list[TaskResponse])
+def get_tasks(database: Session = Depends(get_database)):
     return database.query(Task).all()
 
 
-@app.post("/tasks")
-def post_tasks(task_create: TaskCreate, database=Depends(get_database)):
-    if not task_create.text.strip():
-        raise HTTPException(status_code=404, detail="Data text uncorrected.")
-
+@app.post("/tasks", response_model=TaskResponse)
+def post_tasks(task_create: TaskCreate, database: Session = Depends(get_database)):
     task = Task(text=task_create.text)
     database.add(task)
     database.commit()
     database.refresh(task)
-    return {"message": "Task created complete"}
+    return task
 
 
-@app.delete("/tasks")
-def delete_tasks(id: int, database=Depends(get_database)):
-    task = get_task_by_id(id, database)
+@app.delete("/tasks/{task_id}", response_model=TaskResponse)
+def delete_tasks(task_id: int, database: Session = Depends(get_database)):
+    task = get_task_by_id(task_id, database)
     database.delete(task)
     database.commit()
     return {"message": "delete complete"}
 
 
-@app.put("/tasks")
-def put_task(id: int, new_value: str, database=Depends(get_database)):
-    task = get_task_by_id(id, database)
-    task.text = new_value
+@app.put("/tasks/{task_id}", response_model=TaskResponse)
+def put_task(task_id: int, task_create: TaskCreate, database: Session = Depends(get_database)):
+    task = get_task_by_id(task_id, database)
+    task.text = task_create.text
     database.commit()
-    return {"message": "value update"}
+    database.refresh(task)
+    return task
