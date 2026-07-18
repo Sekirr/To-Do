@@ -1,7 +1,7 @@
 from pydantic import BaseModel, field_validator, ConfigDict
 
 
-class TaskCreate(BaseModel):
+class TaskBase(BaseModel):
     text: str
 
     @field_validator("text")
@@ -13,8 +13,16 @@ class TaskCreate(BaseModel):
         return value
 
 
-class TaskResponse(BaseModel):
+class TaskCreate(TaskBase):
+    pass
+
+
+class TaskResponse(TaskBase):
     id: int
-    text: str
+    completed: bool
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class TaskUpdate(TaskBase):
+    completed: bool

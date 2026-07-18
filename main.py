@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from database import SessionLocal, Task
-from schemas import TaskCreate, TaskResponse
+from schemas import TaskCreate, TaskResponse, TaskUpdate
 from sqlalchemy.orm import Session
 
 app = FastAPI()
@@ -22,14 +22,10 @@ def get_database():
         db.close()
 
 
-def validate_task(task: Task):
-    if task is None:
-        raise HTTPException(status_code=404, detail="Value not found")
-
-
 def get_task_by_id(id: int, database: Session):
     task = database.query(Task).filter(Task.id == id).first()
-    validate_task(task)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Value not found")
 
     return task
 
@@ -57,9 +53,10 @@ def delete_tasks(task_id: int, database: Session = Depends(get_database)):
 
 
 @app.put("/tasks/{task_id}", response_model=TaskResponse)
-def put_task(task_id: int, task_create: TaskCreate, database: Session = Depends(get_database)):
+def put_task(task_id: int, task_update: TaskUpdate, database: Session = Depends(get_database)):
     task = get_task_by_id(task_id, database)
-    task.text = task_create.text
+    task.text = task_update.text
+    task.completed = task_update.completed
     database.commit()
     database.refresh(task)
     return task
