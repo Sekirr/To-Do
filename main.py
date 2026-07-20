@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from database import SessionLocal, Task
 from schemas import TaskCreate, TaskResponse, TaskUpdate
@@ -31,8 +31,27 @@ def get_task_by_id(id: int, database: Session):
 
 
 @app.get("/tasks", response_model=list[TaskResponse])
-def get_tasks(database: Session = Depends(get_database)):
-    return database.query(Task).all()
+def get_tasks(
+        completed: bool | None = Query(default=None),
+        database: Session = Depends(get_database)):
+    if completed is None:
+        return database.query(Task).all()
+
+    return database.query(Task).filter(Task.completed == completed).all()
+
+
+@app.get("/tasks/{task_id}", response_model=TaskResponse)
+def get_task(task_id: int, database: Session = Depends(get_database)):
+    task = get_task_by_id(task_id, database)
+    return task
+
+
+@app.get("/tasks", response_model=list[TaskResponse])
+def task_completed(
+        completed: bool | None = Query(default=False),
+        database: Session = Depends(get_database)):
+    task = database.query(Task).filter(Task.completed == completed).all()
+    return task
 
 
 @app.post("/tasks", response_model=TaskResponse)
@@ -57,6 +76,15 @@ def put_task(task_id: int, task_update: TaskUpdate, database: Session = Depends(
     task = get_task_by_id(task_id, database)
     task.text = task_update.text
     task.completed = task_update.completed
+    database.commit()
+    database.refresh(task)
+    return task
+
+
+@app.patch("/tasks/{task_id}/toggle", response_model=TaskResponse)
+def patch_task(task_id: int, database: Session = Depends(get_database)):
+    task = get_task_by_id(task_id, database)
+    task.completed = not task.completed
     database.commit()
     database.refresh(task)
     return task
