@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import SessionLocal, Task
 from schemas import TaskCreate, TaskResponse, TaskUpdate
 from sqlalchemy.orm import Session
+from typing import Annotated
 
 app = FastAPI()
 
@@ -38,13 +39,16 @@ def get_task(task_id: int, database: Session = Depends(get_database)):
 
 @app.get("/tasks", response_model=list[TaskResponse])
 def task_completed(
-        completed: bool | None = Query(default=False),
-        limit: int | None = Query(default=5),
-        offset: int | None = Query(default=0),
+        completed: Annotated[bool | None, Query()] = None,
+        limit: Annotated[int, Query(ge=1, le=100)] = 20,
+        offset: Annotated[int, Query(ge=0)] = 0,
         database: Session = Depends(get_database)):
-    task = database.query(Task).filter(
-        Task.completed == completed).offset(offset).limit(limit).all()
-    return task
+    query = database.query(Task)
+
+    if completed is not None:
+        query = query.filter(Task.completed == completed)
+
+    return query.offset(offset).limit(limit).all()
 
 
 @app.post("/tasks", response_model=TaskResponse)
