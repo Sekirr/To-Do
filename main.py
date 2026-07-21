@@ -30,16 +30,6 @@ def get_task_by_id(id: int, database: Session):
     return task
 
 
-@app.get("/tasks", response_model=list[TaskResponse])
-def get_tasks(
-        completed: bool | None = Query(default=None),
-        database: Session = Depends(get_database)):
-    if completed is None:
-        return database.query(Task).all()
-
-    return database.query(Task).filter(Task.completed == completed).all()
-
-
 @app.get("/tasks/{task_id}", response_model=TaskResponse)
 def get_task(task_id: int, database: Session = Depends(get_database)):
     task = get_task_by_id(task_id, database)
@@ -49,8 +39,11 @@ def get_task(task_id: int, database: Session = Depends(get_database)):
 @app.get("/tasks", response_model=list[TaskResponse])
 def task_completed(
         completed: bool | None = Query(default=False),
+        limit: int | None = Query(default=5),
+        offset: int | None = Query(default=0),
         database: Session = Depends(get_database)):
-    task = database.query(Task).filter(Task.completed == completed).all()
+    task = database.query(Task).filter(
+        Task.completed == completed).offset(offset).limit(limit).all()
     return task
 
 
