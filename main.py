@@ -42,11 +42,30 @@ def task_completed(
         completed: Annotated[bool | None, Query()] = None,
         limit: Annotated[int, Query(ge=1, le=100)] = 20,
         offset: Annotated[int, Query(ge=0)] = 0,
+        sort: Annotated[str, Query()] = "id",
         database: Session = Depends(get_database)):
     query = database.query(Task)
 
     if completed is not None:
         query = query.filter(Task.completed == completed)
+
+    allowed_sort = {
+        "id": Task.id,
+        "text": Task.text,
+        "completed": Task.completed,
+    }
+
+    descending = sort.startswith("-")
+    field_name = sort.lstrip("-")
+    column = allowed_sort.get(field_name)
+
+    if column is None:
+        raise HTTPException(status_code=400, detail="Invalid sort field")
+
+    if descending:
+        query = query.order_by(column.desc())
+    else:
+        query = query.order_by(column)
 
     return query.offset(offset).limit(limit).all()
 
