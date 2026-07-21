@@ -43,11 +43,15 @@ def task_completed(
         limit: Annotated[int, Query(ge=1, le=100)] = 20,
         offset: Annotated[int, Query(ge=0)] = 0,
         sort: Annotated[str, Query()] = "id",
+        search: Annotated[str | None, Query()] = None,
         database: Session = Depends(get_database)):
     query = database.query(Task)
 
     if completed is not None:
         query = query.filter(Task.completed == completed)
+
+    if search:
+        query = query.filter(Task.text.contains(search))
 
     allowed_sort = {
         "id": Task.id,
